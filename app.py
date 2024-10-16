@@ -9,7 +9,6 @@ import traceback
 from datetime import datetime
 import time
 import base64
-import webbrowser
 
 # Load environment variables
 load_dotenv()
@@ -64,7 +63,7 @@ def generate_image(prompt):
         headers = {"Authorization": f"Bearer {os.getenv('HUGGINGFACE_API_KEY')}"}
 
         response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
-        response.raise_for_status()
+        response.raise_for_status()  # Raises an HTTPError for bad responses
 
         return response.content
     except requests.RequestException as e:
@@ -74,29 +73,12 @@ def generate_image(prompt):
         logger.error(f"Error in generate_image: {str(e)}")
         raise Exception("An unexpected error occurred while generating the image.")
 
-def auto_download_image(img_data):
-    try:
-        # Convert image data to base64
-        b64 = base64.b64encode(img_data).decode()
-        
-        # Create the download link with automatic download trigger
-        js = f'''
-            <script>
-                function downloadImage() {{
-                    const a = document.createElement('a');
-                    a.href = "data:image/png;base64,{b64}";
-                    a.download = "generated_image_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png";
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                }}
-                downloadImage();
-            </script>
-        '''
-        st.components.v1.html(js, height=0)
-    except Exception as e:
-        logger.error(f"Error in auto_download_image: {str(e)}")
-        raise Exception("Failed to initiate automatic download.")
+def get_image_download_link(img, filename, text):
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    href = f'<a href="data:file/png;base64,{img_str}" download="{filename}">{text}</a>'
+    return href
 
 def create_streamlit_app():
     try:
@@ -130,10 +112,13 @@ def create_streamlit_app():
                         image = Image.open(io.BytesIO(image_bytes))
                         st.image(image, caption="Generated Image", use_column_width=True)
                         
-                        # Trigger automatic download
-                        auto_download_image(image_bytes)
+                        # Prepare automatic download
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        file_name = f"generated_image_{timestamp}.png"
                         
-                        logger.info(f"Image successfully generated and auto-downloaded for prompt: {prompt}")
+                        st.markdown(get_image_download_link(image, file_name, "Click here to download the image"), unsafe_allow_html=True)
+                        
+                        logger.info(f"Image successfully generated and downloaded for prompt: {prompt}")
                         st.success("Image generated and downloaded successfully!")
                 except Exception as e:
                     st.markdown(f"<div class='error-message'>{str(e)}</div>", unsafe_allow_html=True)

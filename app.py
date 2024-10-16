@@ -73,12 +73,22 @@ def generate_image(prompt):
         logger.error(f"Error in generate_image: {str(e)}")
         raise Exception("An unexpected error occurred while generating the image.")
 
-def get_image_download_link(img, filename, text):
+def auto_download_image(img, filename):
     buffered = io.BytesIO()
     img.save(buffered, format="PNG")
     img_str = base64.b64encode(buffered.getvalue()).decode()
-    href = f'<a href="data:file/png;base64,{img_str}" download="{filename}">{text}</a>'
-    return href
+
+    download_js = f"""
+    <script>
+    var link = document.createElement('a');
+    link.href = 'data:image/png;base64,{img_str}';
+    link.download = '{filename}';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    </script>
+    """
+    st.markdown(download_js, unsafe_allow_html=True)
 
 def create_streamlit_app():
     try:
@@ -112,14 +122,13 @@ def create_streamlit_app():
                         image = Image.open(io.BytesIO(image_bytes))
                         st.image(image, caption="Generated Image", use_column_width=True)
                         
-                        # Prepare automatic download
+                        # Automatically download the image
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         file_name = f"generated_image_{timestamp}.png"
-                        
-                        st.markdown(get_image_download_link(image, file_name, "Click here to download the image"), unsafe_allow_html=True)
-                        
-                        logger.info(f"Image successfully generated and downloaded for prompt: {prompt}")
-                        st.success("Image generated and downloaded successfully!")
+                        auto_download_image(image, file_name)
+
+                        logger.info(f"Image successfully generated and auto-downloaded for prompt: {prompt}")
+                        st.success("Image generated and automatically downloaded successfully!")
                 except Exception as e:
                     st.markdown(f"<div class='error-message'>{str(e)}</div>", unsafe_allow_html=True)
             else:

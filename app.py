@@ -9,7 +9,6 @@ import traceback
 from datetime import datetime
 import time
 import base64
-import uuid
 
 # Load environment variables
 load_dotenv()
@@ -21,7 +20,6 @@ logger = logging.getLogger(__name__)
 def set_page_config():
     try:
         st.set_page_config(page_title="AI Image Generator", page_icon="🖼️", layout="wide", menu_items=None)
-        # Add the base styles
         st.markdown("""
         <style>
         #MainMenu {visibility: hidden;}
@@ -53,7 +51,7 @@ def set_page_config():
             border-radius: 5px;
             margin-top: 10px;
         }
-        .download-link-hidden {
+        #downloadButton {
             display: none;
         }
         </style>
@@ -79,39 +77,22 @@ def generate_image(prompt):
         raise Exception("An unexpected error occurred while generating the image.")
 
 def get_image_download_link(img, filename, text):
-    try:
-        buffered = io.BytesIO()
-        img.save(buffered, format="PNG")
-        img_str = base64.b64encode(buffered.getvalue()).decode()
-        download_id = f"download-{uuid.uuid4()}"
-        
-        # Create the HTML structure with both visible and hidden download links
-        download_html = f"""
-            <div>
-                <a href="data:file/png;base64,{img_str}" 
-                   id="{download_id}-visible" 
-                   download="{filename}">{text}</a>
-                <a href="data:file/png;base64,{img_str}" 
-                   id="{download_id}-hidden" 
-                   download="{filename}" 
-                   class="download-link-hidden"></a>
-                <script>
-                    (function() {{
-                        setTimeout(function() {{
-                            try {{
-                                document.getElementById('{download_id}-hidden').click();
-                            }} catch(e) {{
-                                console.error('Auto download failed:', e);
-                            }}
-                        }}, 2000);
-                    }})();
-                </script>
-            </div>
-        """
-        return download_html
-    except Exception as e:
-        logger.error(f"Error in get_image_download_link: {str(e)}")
-        return f'<div class="error-message">Error preparing download link: {str(e)}</div>'
+    buffered = io.BytesIO()
+    img.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    
+    # Create HTML with both the download link and auto-download script
+    html = f'''
+        <a id="downloadButton" href="data:file/png;base64,{img_str}" download="{filename}">{text}</a>
+        <script>
+            document.addEventListener("DOMContentLoaded", function() {{
+                setTimeout(function() {{
+                    document.getElementById("downloadButton").click();
+                }}, 2000);
+            }});
+        </script>
+    '''
+    return html
 
 def create_streamlit_app():
     try:
@@ -149,13 +130,14 @@ def create_streamlit_app():
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         file_name = f"generated_image_{timestamp}.png"
                         
-                        st.markdown(
-                            get_image_download_link(image, file_name, "Click here to download the image"),
-                            unsafe_allow_html=True
-                        )
+                        # Insert download button and auto-download script
+                        download_html = get_image_download_link(image, file_name, "")
+                        st.markdown(download_html, unsafe_allow_html=True)
                         
-                        logger.info(f"Image successfully generated for prompt: {prompt}")
-                        st.success("Image generated! Download will start automatically in 2 seconds.")
+                        # Show success message
+                        st.success("Image generated successfully! Download will start automatically in 2 seconds.")
+                        
+                        logger.info(f"Image successfully generated and download triggered for prompt: {prompt}")
                 except Exception as e:
                     st.markdown(f"<div class='error-message'>{str(e)}</div>", unsafe_allow_html=True)
             else:

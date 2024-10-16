@@ -9,6 +9,7 @@ import traceback
 from datetime import datetime
 import time
 import base64
+import json
 
 # Load environment variables
 load_dotenv()
@@ -52,6 +53,13 @@ def set_page_config():
             margin-top: 10px;
         }
         </style>
+        <script>
+        function autoClickDownload() {
+            setTimeout(function() {
+                document.querySelector('#download-link').click();
+            }, 2000);
+        }
+        </script>
         """, unsafe_allow_html=True)
     except Exception as e:
         logger.error(f"Error in set_page_config: {str(e)}")
@@ -63,7 +71,7 @@ def generate_image(prompt):
         headers = {"Authorization": f"Bearer {os.getenv('HUGGINGFACE_API_KEY')}"}
 
         response = requests.post(API_URL, headers=headers, json={"inputs": prompt})
-        response.raise_for_status()  # Raises an HTTPError for bad responses
+        response.raise_for_status()
 
         return response.content
     except requests.RequestException as e:
@@ -73,22 +81,12 @@ def generate_image(prompt):
         logger.error(f"Error in generate_image: {str(e)}")
         raise Exception("An unexpected error occurred while generating the image.")
 
-def auto_download_image(img, filename):
+def get_image_download_link(img, filename, text):
     buffered = io.BytesIO()
     img.save(buffered, format="PNG")
     img_str = base64.b64encode(buffered.getvalue()).decode()
-
-    download_js = f"""
-    <script>
-    var link = document.createElement('a');
-    link.href = 'data:image/png;base64,{img_str}';
-    link.download = '{filename}';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    </script>
-    """
-    st.markdown(download_js, unsafe_allow_html=True)
+    href = f'<a id="download-link" href="data:file/png;base64,{img_str}" download="{filename}">{text}</a>'
+    return href + '<script>autoClickDownload();</script>'
 
 def create_streamlit_app():
     try:
@@ -122,13 +120,14 @@ def create_streamlit_app():
                         image = Image.open(io.BytesIO(image_bytes))
                         st.image(image, caption="Generated Image", use_column_width=True)
                         
-                        # Automatically download the image
+                        # Prepare automatic download
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         file_name = f"generated_image_{timestamp}.png"
-                        auto_download_image(image, file_name)
-
-                        logger.info(f"Image successfully generated and auto-downloaded for prompt: {prompt}")
-                        st.success("Image generated and automatically downloaded successfully!")
+                        
+                        st.markdown(get_image_download_link(image, file_name, "Click here to download the image"), unsafe_allow_html=True)
+                        
+                        logger.info(f"Image successfully generated and downloaded for prompt: {prompt}")
+                        st.success("Image generated and download will start automatically in 2 seconds!")
                 except Exception as e:
                     st.markdown(f"<div class='error-message'>{str(e)}</div>", unsafe_allow_html=True)
             else:

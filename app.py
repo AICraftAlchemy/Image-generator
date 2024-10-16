@@ -150,8 +150,8 @@ def create_streamlit_app():
                         download_component = auto_download_image(image, filename)
                         st.components.v1.html(download_component, height=0)
                         
-                        logger.info(f"Image generated and auto-download triggered for prompt: {prompt}")
-                        st.success("Image generated! Download starting automatically...")
+                        logger.info(f"Image generated and auto-download triggered for prompt: {prompt} : {filename}")
+                        st.success("Image generated!")
                 except Exception as e:
                     st.markdown(f"<div class='error-message'>{str(e)}</div>", unsafe_allow_html=True)
             else:

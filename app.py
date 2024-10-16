@@ -135,11 +135,7 @@ def create_streamlit_app():
                         "Adding final touches to your masterpiece..."
                     ]
                     
-                    with st.spinner("Generating image..."):
-                        for i, message in enumerate(engaging_messages):
-                            if time.time() - start_time > i * 1:
-                                progress_placeholder.text(message)
-                        
+                    with st.spinner("Generating image..."):    
                         image_bytes = generate_image(prompt)
                         image = Image.open(io.BytesIO(image_bytes))
                         st.image(image, caption="Generated Image", use_column_width=True)

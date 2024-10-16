@@ -35,14 +35,6 @@ def set_page_config():
             text-align: center;
             margin-bottom: 30px;
         }
-        .error-message {
-            color: #721c24;
-            background-color: #f8d7da;
-            border-color: #f5c6cb;
-            padding: 10px;
-            border-radius: 5px;
-            margin-top: 10px;
-        }
         .footer {
             text-align: center;
             padding: 20px 0;
@@ -50,6 +42,14 @@ def set_page_config():
             color: #666;
             border-top: 1px solid #eee;
             margin-top: 40px;
+        }
+        .error-message {
+            color: #721c24;
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -73,24 +73,25 @@ def generate_image(prompt):
         logger.error(f"Error in generate_image: {str(e)}")
         raise Exception("An unexpected error occurred while generating the image.")
 
-def save_image(img, filename):
+def get_image_download_link(img, filename, text):
     buffered = io.BytesIO()
     img.save(buffered, format="PNG")
-    with open(filename, "wb") as f:
-        f.write(buffered.getvalue())
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    href = f'<a href="data:file/png;base64,{img_str}" download="{filename}">{text}</a>'
+    return href
 
 def create_streamlit_app():
     try:
         set_page_config()
-
+        
         st.markdown("<h1 class='main-title'>🖼️ AI Image Generator by Ai Craft Alchemy</h1>", unsafe_allow_html=True)
 
         prompt = st.text_area("Enter your image prompt:", height=100)
-
+        
         if st.button("Generate Image"):
             if prompt:
                 logger.info(f"User prompt: {prompt}")
-
+                
                 try:
                     progress_placeholder = st.empty()
                     start_time = time.time()
@@ -101,21 +102,24 @@ def create_streamlit_app():
                         "Bringing your imagination to life...",
                         "Adding final touches to your masterpiece..."
                     ]
-
+                    
                     with st.spinner("Generating image..."):
                         for i, message in enumerate(engaging_messages):
                             if time.time() - start_time > i * 5:
                                 progress_placeholder.text(message)
-
+                        
                         image_bytes = generate_image(prompt)
                         image = Image.open(io.BytesIO(image_bytes))
                         st.image(image, caption="Generated Image", use_column_width=True)
-
-                        # Save image
+                        
+                        # Prepare automatic download
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         file_name = f"generated_image_{timestamp}.png"
-                        save_image(image, file_name)
-                        logger.info(f"Image saved to file: {file_name}")
+                        
+                        st.markdown(get_image_download_link(image, file_name, "Click here to download the image"), unsafe_allow_html=True)
+                        
+                        logger.info(f"Image successfully generated and downloaded for prompt: {prompt}")
+                        st.success("Image generated and downloaded successfully!")
                 except Exception as e:
                     st.markdown(f"<div class='error-message'>{str(e)}</div>", unsafe_allow_html=True)
             else:

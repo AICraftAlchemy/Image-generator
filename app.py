@@ -137,7 +137,7 @@ def create_streamlit_app():
                     
                     with st.spinner("Generating image..."):
                         for i, message in enumerate(engaging_messages):
-                            if time.time() - start_time > i * 5:
+                            if time.time() - start_time > i * 1:
                                 progress_placeholder.text(message)
                         
                         image_bytes = generate_image(prompt)

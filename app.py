@@ -52,8 +52,8 @@ def set_page_config():
             border-radius: 5px;
             margin-top: 10px;
         }
-        .auto-download-link {
-            display: none !important;
+        .auto-download {
+            display: none;
         }
         </style>
         """, unsafe_allow_html=True)
@@ -77,28 +77,31 @@ def generate_image(prompt):
         logger.error(f"Error in generate_image: {str(e)}")
         raise Exception("An unexpected error occurred while generating the image.")
 
-def get_image_download_link(img, filename):
+def auto_download_image(img, filename):
     try:
         buffered = io.BytesIO()
         img.save(buffered, format="PNG")
         img_str = base64.b64encode(buffered.getvalue()).decode()
-        download_id = f"download-{uuid.uuid4()}"
+        unique_id = f"download-{uuid.uuid4()}"
         
-        # Creating HTML with both visible and auto-download links
         html = f"""
             <div>
-                <a href="data:file/png;base64,{img_str}" 
-                   class="auto-download-link"
-                   id="{download_id}"
-                   download="{filename}">Download Image</a>
+                <a 
+                    id="{unique_id}" 
+                    class="auto-download" 
+                    href="data:image/png;base64,{img_str}" 
+                    download="{filename}"
+                    style="display: none;"
+                >download</a>
                 <script>
-                    (function() {{
-                        const downloadLink = document.getElementById('{download_id}');
-                        if (downloadLink) {{
-                            downloadLink.click();
-                            console.log("Auto download triggered");
-                        }} else {{
-                            console.error("Download link not found");
+                    (() => {{
+                        try {{
+                            const link = document.getElementById("{unique_id}");
+                            if (link) {{
+                                link.click();
+                            }}
+                        }} catch (e) {{
+                            console.error("Auto download failed:", e);
                         }}
                     }})();
                 </script>
@@ -106,7 +109,7 @@ def get_image_download_link(img, filename):
         """
         return html
     except Exception as e:
-        logger.error(f"Error creating download link: {str(e)}")
+        logger.error(f"Error in auto_download_image: {str(e)}")
         return f"<div class='error-message'>Error preparing download: {str(e)}</div>"
 
 def create_streamlit_app():
@@ -141,25 +144,14 @@ def create_streamlit_app():
                         image = Image.open(io.BytesIO(image_bytes))
                         st.image(image, caption="Generated Image", use_column_width=True)
                         
-                        # Generate unique filename
+                        # Auto download
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-                        file_name = f"generated_image_{timestamp}.png"
+                        filename = f"generated_image_{timestamp}.png"
+                        download_component = auto_download_image(image, filename)
+                        st.components.v1.html(download_component, height=0)
                         
-                        # Inject download component and auto-trigger script
-                        st.markdown(get_image_download_link(image, file_name), unsafe_allow_html=True)
-                        
-                        # Manual download button
-                        buffered = io.BytesIO()
-                        image.save(buffered, format="PNG")
-                        st.download_button(
-                            label="Click to download manually",
-                            data=buffered.getvalue(),
-                            file_name=file_name,
-                            mime="image/png"
-                        )
-                        
-                        logger.info(f"Image generated successfully for prompt: {prompt}")
-                        st.success("Image generated successfully! Download should start automatically.")
+                        logger.info(f"Image generated and auto-download triggered for prompt: {prompt}")
+                        st.success("Image generated! Download starting automatically...")
                 except Exception as e:
                     st.markdown(f"<div class='error-message'>{str(e)}</div>", unsafe_allow_html=True)
             else:
